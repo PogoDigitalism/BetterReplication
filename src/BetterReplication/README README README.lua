@@ -16,11 +16,6 @@
 --2. put the PositionReplicator folder anywhere in ServerScriptService
 --3. put the ReplicationHandler localscript anywhere in StarterPlayerScripts
 
-
--- ⭐ For more advanced users; 
--- > You can configure the position and orientation speed to your likings in the Config module located under PlayerPositionsHandler 
--- > You can get the accurate position data on the server by using the getCFrame method in UptodatePositions (located under PositionReplicator)
-
 -- and thats it! Enjoy! Please feel free to add me on Discord; @PogoDigitalism to ask me any questions or report bugs!
 
 -- update LOG:
