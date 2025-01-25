@@ -1,3 +1,6 @@
+❗ Even though BetterReplication performs stable and is considered ready for production, a refactor will be needed to clean up the codebase a bit.
+I appreciate any PR's to help along the way!
+
 https://devforum.roblox.com/t/betterreplication-vastly-improve-your-combat-experience-by-fighting-lag/3260027?u=baukeblox12
 ### This read me is copied from the .luau readme file. Will format this properly soon                                                                                                
 -- BetterReplication version 4 (V4)
