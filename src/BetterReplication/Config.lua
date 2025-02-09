@@ -1,6 +1,6 @@
 local Config = {
 	-- from how many studs should players not be replicated with BetterReplication anymore?
-	proximityThreshold = 150, 
+	proximityThreshold = 50, 
 	
 	-----------------------
 	
