@@ -14,9 +14,8 @@ type playerIdentifier = number
 local UptodatePositions = {}
 local positionTable = {} :: {[Player]: CFrame} -- table for getting latest position data
 local identifiers = {} :: {[Player]: playerIdentifier}
-local scheduledUpdates = {} :: {[Player]: CFrame}-- high frequency position update table
 local currentlyOutOfProximity = {} :: {[Player]: {Player}}
-local targets = false
+local warrantIteration = false
 local enabled = true
 
 -------------------
@@ -73,24 +72,39 @@ ReplicationPackets.ReplicatePosition.listen(function(data, player)
 		return
 	end
 	
-	positionTable[player] = data
-	scheduledUpdates[player] = data
+	-- your sanity checks here
+	-- make sure to at least implement protection against remote spams
 	
-	targets = true
+	positionTable[player] = data.c
+	if not enabled then return end
+	
+	warrantIteration = true
+	
+	local outOfProximity = currentlyOutOfProximity[player]
+	for _, receiver in Players:GetPlayers() do
+		if receiver == player or table.find(outOfProximity, receiver) then
+			continue
+		end
+
+		ReplicationPackets.GetReplicatedPosition.sendTo({
+			t = data.t,
+			p = identifiers[player],
+			c = data.c
+		}, receiver)
+	end
 end)
 
-local function clock(ht)
-	if not enabled or not targets then return end
+local function proximityClock(ht)
+	if not warrantIteration then return end
 	
 	for _, receiver in Players:GetPlayers() do
 		local updateMap = {}
-		local subjectTargets = false
 		
 		local newOutOfProximity = {}
 		local proximityUpdate = false
 		
 		local receiverCframe = positionTable[receiver]
-		for subject, cframe in scheduledUpdates do
+		for subject, cframe in positionTable do
 			if subject == receiver then continue end
 			
 			local isInProximity = (receiverCframe.Position - cframe.Position).Magnitude <= Config.proximityThreshold
@@ -114,34 +128,21 @@ local function clock(ht)
 					currentlyOutOfProximity[receiver], 
 					subject
 				)
-				table.insert(newOutOfProximity, 
-					
+				table.insert(
+					newOutOfProximity,
 					identifiers[subject]
 				)
 				
 				proximityUpdate = true
-				continue
 			end
-		
-			subjectTargets = true
-			updateMap[identifiers[subject]] = cframe
 		end
 		if proximityUpdate then
 			ReplicationPackets.OutOfProximity.sendTo(newOutOfProximity, receiver)
 		end
-		if subjectTargets then
-			ReplicationPackets.GetReplicatedPosition.sendTo({
-				t = os.clock(),
-				m = updateMap
-			}, receiver)
-		end
 	end
-	
-	-- flush scheduledUpdates
-	targets = false
-	table.clear(scheduledUpdates)
+	warrantIteration = false
 end
-Utils.FrequencyHeartbeat(clock, 1/Config.tickRate)
+Utils.FrequencyHeartbeat(proximityClock, 1/Config.tickRate)
 
 function UptodatePositions.getCFrame(player: Player): CFrame
 	return positionTable[player]

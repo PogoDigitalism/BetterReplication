@@ -3,7 +3,10 @@ local ByteNet = require(script.Parent.Parent.ByteNet)
 return ByteNet.defineNamespace("Replication", function()
 	return {
 		ReplicatePosition = ByteNet.definePacket({
-			value =  ByteNet.simplecframe,
+			value = ByteNet.struct({
+				t = ByteNet.float32,
+				c = ByteNet.simplecframe
+			}),
 			reliabilityType = "unreliable"
 		}),
 		
@@ -14,7 +17,8 @@ return ByteNet.defineNamespace("Replication", function()
 		GetReplicatedPosition = ByteNet.definePacket({
 			value = ByteNet.struct({
 				t = ByteNet.float32,
-				m = ByteNet.map(ByteNet.playerIdentifier, ByteNet.simplecframe),
+				p = ByteNet.playerIdentifier,
+				c = ByteNet.simplecframe
 			}),
 			reliabilityType = "unreliable"
 		}),

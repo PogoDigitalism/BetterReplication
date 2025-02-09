@@ -30,9 +30,12 @@ local function update()
 	
 	if hasSignificantChange(lastCframe, rootCframe) then
 		lastCframe = rootCframe
-		ReplicationPackets.ReplicatePosition.send(rootCframe)
+		ReplicationPackets.ReplicatePosition.send({
+			t = os.clock(),
+			c = rootCframe
+		})
 	end
 end
 update()
 
-Utils.FrequencyHeartbeat(update, 30)
+Utils.FrequencyHeartbeat(update, 20)
