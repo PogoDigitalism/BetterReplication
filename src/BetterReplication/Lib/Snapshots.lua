@@ -60,9 +60,11 @@ function Snapshot.pushAt(self: Snapshot, at, o): ()
 		if self._cache[i] then 
 			if self._cache[i].at < at then
 				table.insert(self._cache, i, {["at"] = at, ["o"] = o})
+				break
 			end
 		else
 			self._cache[i] = {["at"] = at, ["o"] = o}
+			break
 		end
 	end
 

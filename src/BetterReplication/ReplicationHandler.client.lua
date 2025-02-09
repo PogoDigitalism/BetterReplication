@@ -19,10 +19,11 @@ local Snapshots = require(ReplicatedStorage.BetterReplication.Lib.Snapshots)
 
 local registeredIdentifiers = {} :: {[number]: Player}
 local inProximity = {} :: {[Player]: boolean}
-local renderAt = {} :: {[Player]: number}
-
-local lastClockDuration = 0
-local lastClockAt = 0
+local renderCache = {} :: {[Player]: {
+	renderAt: number,
+	lastClockAt: number,
+	lastClockDuration: number
+}}
 
 ReplicationPackets.RegisterPlayerIdentifer.listen(function(data)
 	local player: Player = Players:FindFirstChild(data.player)
@@ -31,26 +32,26 @@ end)
 
 -- associate identifer with player object and push the new cframe
 ReplicationPackets.GetReplicatedPosition.listen(function(data)
+	local player = registeredIdentifiers[data.p]
+	local renderCacheEntry = renderCache[player]
+
 	local currentClock = data.t
-	if currentClock > lastClockAt then
-		lastClockDuration = os.clock()
-		lastClockAt = currentClock
+	if currentClock > renderCacheEntry.lastClockAt then
+		renderCache[player].lastClockDuration = os.clock()
+		renderCache[player].lastClockAt = currentClock
 	else
 		return
 	end
-	
-	for identifier: number, cframe: CFrame in data.m do
-		local player = registeredIdentifiers[identifier]
-		if player and player.Character then
-			if not renderAt[player] then
-				renderAt[player] = currentClock - Config.interpolationDelay
-			end
-			inProximity[player] = true
-			
-			local snapshots = Snapshots.getSnapshotInstance(player)
-			snapshots:pushAt(currentClock, cframe)
-			PositionCache[player] = cframe
+
+	if player and player.Character then
+		if not renderCacheEntry.renderAt then
+			renderCache[player].renderAt = currentClock - Config.interpolationDelay
 		end
+		inProximity[player] = true
+
+		local snapshots = Snapshots.getSnapshotInstance(player)
+		snapshots:pushAt(currentClock, data.c)
+		PositionCache[player] = data.c
 	end
 end)
 
@@ -72,9 +73,11 @@ RunService.PreSimulation:Connect(function(dt)
 			continue
 		end
 		
-		local estimatedServerTime = lastClockAt + (os.clock() - lastClockDuration)
+		local renderCacheEntry = renderCache[player]
 		
-		local clientRenderAt = renderAt[player]
+		local estimatedServerTime = renderCacheEntry.lastClockAt + (os.clock() - renderCacheEntry.lastClockDuration)
+		
+		local clientRenderAt = renderCacheEntry.renderAt
 		clientRenderAt += dt
 
 		local renderTimeError = Config.interpolationDelay - (estimatedServerTime - clientRenderAt)
@@ -86,7 +89,7 @@ RunService.PreSimulation:Connect(function(dt)
 			clientRenderAt = math.min(estimatedServerTime - Config.interpolationDelay, clientRenderAt + .1 * dt)
 		end
 		
-		renderAt[player] = clientRenderAt
+		renderCache[player].renderAt = clientRenderAt
 		local snapshot = Snapshots.getSnapshotInstance(player)
 		local res = snapshot:getAt(clientRenderAt)
 		
@@ -104,13 +107,27 @@ RunService.PreSimulation:Connect(function(dt)
 	workspace:BulkMoveTo(stagedPlayers, stagedResults, Enum.BulkMoveMode.FireAllEvents)
 end)
 
-Players.PlayerAdded:Connect(function(player: Player)
+local function setUp(player: Player)
 	inProximity[player] = false
+	renderCache[player] = {
+		renderAt = nil,
+		lastClockAt = 0,
+		lastClockDuration = 0
+	}
 	Snapshots.registerPlayer(player)
+end
+
+Players.PlayerAdded:Connect(function(player: Player)
+	setUp(player)
 end)
+for _, player in Players:GetPlayers() do
+	setUp(player)
+end
 
 Players.PlayerRemoving:Connect(function(player: Player)
 	inProximity[player] = nil
+	renderCache[player] = nil
+	
 	Snapshots.deregisterPlayer(player)
 	
 	for id, other in registeredIdentifiers do
