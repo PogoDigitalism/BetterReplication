@@ -82,7 +82,7 @@ ReplicationPackets.ReplicatePosition.listen(function(data, player)
 	
 	local outOfProximity = currentlyOutOfProximity[player]
 	for _, receiver in Players:GetPlayers() do
-		if receiver == player or table.find(outOfProximity, receiver) then
+		if receiver == player or Utils.BinarySearch(outOfProximity, receiver) then
 			continue
 		end
 
@@ -108,7 +108,7 @@ local function proximityClock(ht)
 			if subject == receiver then continue end
 			
 			local isInProximity = (receiverCframe.Position - cframe.Position).Magnitude <= Config.proximityThreshold
-			local outOfProximityIndex = table.find(
+			local outOfProximityIndex = Utils.BinarySearch(
 				currentlyOutOfProximity[receiver], 
 				subject
 			)
