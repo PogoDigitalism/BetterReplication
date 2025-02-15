@@ -1,6 +1,7 @@
 local Config = {
 	-- from how many studs should players not be replicated with BetterReplication anymore?
 	proximityThreshold = 150, 
+	-- increases bandwidth but improves support for ragdoll implementations by replicating the whole cframe orientation instead of solely the yaw.
 	makeRagdollFriendly = false,
 	
 	-----------------------
