@@ -1,8 +1,11 @@
 local ReplicatedStorage = game:GetService('ReplicatedStorage')
 local Players = game:GetService('Players')
 
-local ReplicationPackets = require(ReplicatedStorage.BetterReplication.Lib.ByteNet.Namespaces.ReplicationPackets)
+local Config = require(ReplicatedStorage.BetterReplication.Config)
+local BufferUtils = require(ReplicatedStorage.BetterReplication.Lib.BufferUtils)
 local Utils = require(ReplicatedStorage.BetterReplication.Lib.Utils)
+
+local FromClient = ReplicatedStorage.BetterReplication.Remotes.FromClient
 
 local player = Players.LocalPlayer
 local character: Model = player.Character
@@ -11,6 +14,11 @@ local rootpart: Part = character:WaitForChild('HumanoidRootPart')
 local lastCframe = CFrame.new(9999, 9999, 9999)
 local angleThreshold = math.rad(0.5)
 local positionThreshold = 0.01
+
+local writeFromClient = BufferUtils.writeFromClientSimplified
+if Config.makeRagdollFriendly then
+	writeFromClient = BufferUtils.writeFromClient
+end
 
 local function hasSignificantChange(cframe1, cframe2)
 	local positionDelta = (cframe1.Position - cframe2.Position).Magnitude
@@ -30,12 +38,10 @@ local function update()
 	
 	if hasSignificantChange(lastCframe, rootCframe) then
 		lastCframe = rootCframe
-		ReplicationPackets.ReplicatePosition.send({
-			t = os.clock(),
-			c = rootCframe
-		})
+		
+		FromClient:FireServer(writeFromClient(os.clock(), rootCframe))
 	end
 end
 update()
 
-Utils.FrequencyHeartbeat(update, 20)
+Utils.FrequencyPostSimulation(update, 20)

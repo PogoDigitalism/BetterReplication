@@ -1,7 +1,6 @@
 --[[
-	A very big shout-out to @Mephistopheles for 
-	their implementation of the replication buffer. 
-	Thanks to them BetterReplication has it now implemented as well.
+	A shout-out to @Mephistopheles for 
+	their implementation of the replication buffer.
 ]]
 
 local Players = game:GetService('Players')
@@ -10,12 +9,17 @@ local RunService = game:GetService('RunService')
 
 local localPlayer = Players.LocalPlayer
 
-local ReplicationPackets = require(ReplicatedStorage.BetterReplication.Lib.ByteNet.Namespaces.ReplicationPackets)
-local GetRegistry = ReplicatedStorage.BetterReplication.GetRegistry
+local GetRegistry = ReplicatedStorage.BetterReplication.Remotes.GetRegistry
 local PositionCache = require(ReplicatedStorage.BetterReplication.Client.PositionCache)
 local Config = require(ReplicatedStorage.BetterReplication.Config)
 local RunServiceUtils = require(ReplicatedStorage.BetterReplication.Lib.Utils)
 local Snapshots = require(ReplicatedStorage.BetterReplication.Lib.Snapshots)
+local BufferUtils = require(ReplicatedStorage.BetterReplication.Lib.BufferUtils)
+
+local FromClient = ReplicatedStorage.BetterReplication.Remotes.FromClient
+local ToClient = ReplicatedStorage.BetterReplication.Remotes.ToClient
+local RegisterIdentifier = ReplicatedStorage.BetterReplication.Remotes.RegisterIdentifier
+local OutOfProximity = ReplicatedStorage.BetterReplication.Remotes.OutOfProximity
 
 local registeredIdentifiers = {} :: {[number]: Player}
 local inProximity = {} :: {[Player]: boolean}
@@ -25,13 +29,22 @@ local renderCache = {} :: {[Player]: {
 	lastClockDuration: number
 }}
 
-ReplicationPackets.RegisterPlayerIdentifer.listen(function(data)
-	local player: Player = Players:FindFirstChild(data.player)
+local readToClient = BufferUtils.readToClientSimplified
+if Config.makeRagdollFriendly then
+	readToClient = BufferUtils.readToClient
+end
+
+RegisterIdentifier.OnClientEvent:Connect(function(b: buffer)
+	local data = BufferUtils.readRegisterIdentifier(b)
+	
+	local player: Player = Players:FindFirstChild(data.p)
 	registeredIdentifiers[data.id] = player
 end)
 
 -- associate identifer with player object and push the new cframe
-ReplicationPackets.GetReplicatedPosition.listen(function(data)
+ToClient.OnClientEvent:Connect(function(b: buffer)
+	local data = readToClient(b)
+	
 	local player = registeredIdentifiers[data.p]
 	local renderCacheEntry = renderCache[player]
 
@@ -55,7 +68,9 @@ ReplicationPackets.GetReplicatedPosition.listen(function(data)
 	end
 end)
 
-ReplicationPackets.OutOfProximity.listen(function(data)
+OutOfProximity.OnClientEvent:Connect(function(b: buffer)
+	local data = BufferUtils.readOutOfProximityArray(b)
+	
 	for _, identifier: number in data do
 		local player = registeredIdentifiers[identifier]
 		if player then
