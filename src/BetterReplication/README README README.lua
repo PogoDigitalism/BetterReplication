@@ -7,7 +7,7 @@
 --| )      | (___) || (___) || (___) |   | () () || )   ( |/\____) |   | )   ( || (____/\| ) \ \__| (____/\
 --|/       (_______)(_______)(_______)   (_______)|/     \|\_______)   |/     \|(_______/|/   \__/(_______/
                                                                                                        
--- BetterReplication version 6 (V6)
+-- BetterReplication version 6.1 (V6.1)
 
 --Hi there! Here is a small readme of how to implement this replication system!
 -- I recommend to follow the steps below unless you know what you are doing!
@@ -29,6 +29,7 @@
 - new config option; makeRagdollFriendly. Replicates the player's entire CFrame orientation instead of solely its yaw.
 Results in higher bandwidth consumption however. It is recommended to not enable this setting when its not directly necessary.
 More elaboration on this config option soon.
+- V6.1; reduced replication packet size by 40%!
 
 > 30/01/2025: V5 contains some back-end changes that should make replication much more reliable.
 - For the advanced users under us; clients now forward their own ticks instead of the server doing this for them. 
