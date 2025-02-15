@@ -2,10 +2,15 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
-local ReplicationPackets = require(ReplicatedStorage.BetterReplication.Lib.ByteNet.Namespaces.ReplicationPackets)
-local GetRegistry = ReplicatedStorage.BetterReplication.GetRegistry
+local BufferUtils = require(ReplicatedStorage.BetterReplication.Lib.BufferUtils)
+local GetRegistry = ReplicatedStorage.BetterReplication.Remotes.GetRegistry
 local Utils = require(ReplicatedStorage.BetterReplication.Lib.Utils)
-local Config =require(ReplicatedStorage.BetterReplication.Config)
+local Config = require(ReplicatedStorage.BetterReplication.Config)
+
+local FromClient = ReplicatedStorage.BetterReplication.Remotes.FromClient
+local ToClient = ReplicatedStorage.BetterReplication.Remotes.ToClient
+local RegisterIdentifier = ReplicatedStorage.BetterReplication.Remotes.RegisterIdentifier
+local OutOfProximity = ReplicatedStorage.BetterReplication.Remotes.OutOfProximity
 
 local random = Random.new(tick())
 
@@ -17,6 +22,13 @@ local identifiers = {} :: {[Player]: playerIdentifier}
 local currentlyOutOfProximity = {} :: {[Player]: {Player}}
 local warrantIteration = false
 local enabled = true
+
+local writeToClient = BufferUtils.writeToClientSimplified
+local readFromClient = BufferUtils.readFromClientSimplified
+if Config.makeRagdollFriendly then
+	readFromClient = BufferUtils.readFromClient
+	writeToClient = BufferUtils.writeToClient
+end
 
 -------------------
 
@@ -39,10 +51,7 @@ local function getIdentifier(player: Player)
 	end
 	identifiers[player] = potentialId
 	
-	ReplicationPackets.RegisterPlayerIdentifer.sendToAll({
-			id = potentialId,
-		player = player.Name
-	})
+	RegisterIdentifier:FireAllClients(BufferUtils.writeRegisterIdentifier(player.Name, potentialId))
 end
 GetRegistry.OnServerInvoke = function()
 	local t = {}
@@ -66,7 +75,11 @@ Players.PlayerRemoving:Connect(function(player: Player)
 	identifiers[player] = nil
 end)
 
-ReplicationPackets.ReplicatePosition.listen(function(data, player)
+
+--
+FromClient.OnServerEvent:Connect(function(player, b: buffer)
+	local data = readFromClient(b)
+	
 	if random:NextNumber() <= Config.packetLossRate then
 		warn("simulated loss for", player)
 		return
@@ -86,11 +99,7 @@ ReplicationPackets.ReplicatePosition.listen(function(data, player)
 			continue
 		end
 
-		ReplicationPackets.GetReplicatedPosition.sendTo({
-			t = data.t,
-			p = identifiers[player],
-			c = data.c
-		}, receiver)
+		ToClient:FireClient(receiver, writeToClient(data.t, identifiers[player], data.c))
 	end
 end)
 
@@ -104,6 +113,8 @@ local function proximityClock(ht)
 		local proximityUpdate = false
 		
 		local receiverCframe = positionTable[receiver]
+		if not receiverCframe then continue end
+		
 		for subject, cframe in positionTable do
 			if subject == receiver then continue end
 			
@@ -137,7 +148,7 @@ local function proximityClock(ht)
 			end
 		end
 		if proximityUpdate then
-			ReplicationPackets.OutOfProximity.sendTo(newOutOfProximity, receiver)
+			OutOfProximity:FireClient(receiver, BufferUtils.writeOutOfProximityArray(newOutOfProximity))
 		end
 	end
 	warrantIteration = false

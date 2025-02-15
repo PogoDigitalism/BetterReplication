@@ -3,10 +3,10 @@ local RunService = game:GetService('RunService')
 
 local Utils = {}
 
-function Utils.FrequencyHeartbeat(callback: (number) -> (), frequency: number)
+function Utils.FrequencyPostSimulation(callback: (number) -> (), frequency: number)
 	local last = time()
 	frequency = 1/frequency
-	return RunService.Heartbeat:Connect(function()
+	return RunService.PostSimulation:Connect(function()
 		local dt = time() - last
 		if dt < frequency then
 			return
@@ -16,10 +16,10 @@ function Utils.FrequencyHeartbeat(callback: (number) -> (), frequency: number)
 	end)
 end
 
-function Utils.PreRender(callback: (number) -> (), frequency: number)
+function Utils.FrequencyHeartbeat(callback: (number) -> (), frequency: number)
 	local last = time()
 	frequency = 1/frequency
-	return RunService.PreRender:Connect(function()
+	return RunService.Heartbeat:Connect(function()
 		local dt = time() - last
 		if dt < frequency then
 			return

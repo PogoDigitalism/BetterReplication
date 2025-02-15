@@ -2,7 +2,12 @@
 I appreciate any PR's to help along the way!
 
 https://devforum.roblox.com/t/betterreplication-vastly-improve-your-combat-experience-by-fighting-lag/3260027?u=baukeblox12
-### This read me is copied from the .luau readme file. Will format this properly soon                                                                                                
+### This read me is copied from the .luau readme file. Will format this properly soon  
+> 15/02/2025: V6 BetterReplication has moved away from ByteNet and now has its own buffer reader and writer!
+- new config option; makeRagdollFriendly. Replicates the player's entire CFrame orientation instead of solely its yaw.
+Results in higher bandwidth consumption however. It is recommended to not enable this setting when its not directly necessary.
+More elaboration on this config option soon.
+                                                                                              
 > 30/01/2025: V5 contains some back-end changes that should make replication much more reliable.
 - For the advanced users under us; clients now forward their own ticks instead of the server doing this for them. 
 In V4; BetterReplication assumed the same tick for every client (as it forwarded the position cache in bulk at 20hz). This
