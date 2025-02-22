@@ -42,17 +42,17 @@ local function writeCFrame(b: buffer, cframe: CFrame): buffer
 	local oldBlen = buffer.len(b)
 	
 	local newB = buffer.create(oldBlen + 15)
-	buffer.copy(b, 0, newB)
+	buffer.copy(newB, 0, b)
 	
 	local x, y, z = cframe.X, cframe.Y, cframe.Z
 	local rx, ry, rz = cframe:ToEulerAnglesYXZ()
 	
-	writei24(b, oldBlen + 0, x*100)
-	writei24(b, oldBlen + 3, y*100)
-	writei24(b, oldBlen + 6, z*100)
-	writeFloatAsi16(b, oldBlen + 9, rx)
-	writeFloatAsi16(b, oldBlen + 11, ry)
-	writeFloatAsi16(b, oldBlen + 13, rz)
+	writei24(newB, oldBlen + 0, x*100)
+	writei24(newB, oldBlen + 3, y*100)
+	writei24(newB, oldBlen + 6, z*100)
+	writeFloatAsi16(newB, oldBlen + 9, rx)
+	writeFloatAsi16(newB, oldBlen + 11, ry)
+	writeFloatAsi16(newB, oldBlen + 13, rz)
 	
 	return newB
 end
