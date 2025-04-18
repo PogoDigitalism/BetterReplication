@@ -6,21 +6,23 @@
 local Players = game:GetService('Players')
 local ReplicatedStorage = game:GetService('ReplicatedStorage')
 local RunService = game:GetService('RunService')
+local BetterReplication = script.Parent.Parent
 
 local localPlayer = Players.LocalPlayer
 
-local GetRegistry = ReplicatedStorage.BetterReplication.Remotes.GetRegistry
-local PositionCache = require(ReplicatedStorage.BetterReplication.Client.PositionCache)
-local Config = require(ReplicatedStorage.BetterReplication.Config)
-local RunServiceUtils = require(ReplicatedStorage.BetterReplication.Lib.Utils)
-local Snapshots = require(ReplicatedStorage.BetterReplication.Lib.Snapshots)
-local BufferUtils = require(ReplicatedStorage.BetterReplication.Lib.BufferUtils)
+local GetRegistry = BetterReplication.Remotes.GetRegistry
+local PositionCache = require(BetterReplication.Client.PositionCache)
+local Config = require(BetterReplication.Config)
+local RunServiceUtils = require(BetterReplication.Lib.Utils)
+local Snapshots = require(BetterReplication.Lib.Snapshots)
+local BufferUtils = require(BetterReplication.Lib.BufferUtils)
 
-local FromClient = ReplicatedStorage.BetterReplication.Remotes.FromClient
-local ToClient = ReplicatedStorage.BetterReplication.Remotes.ToClient
-local RegisterIdentifier = ReplicatedStorage.BetterReplication.Remotes.RegisterIdentifier
-local OutOfProximity = ReplicatedStorage.BetterReplication.Remotes.OutOfProximity
+local FromClient = BetterReplication.Remotes.FromClient
+local ToClient = BetterReplication.Remotes.ToClient
+local RegisterIdentifier = BetterReplication.Remotes.RegisterIdentifier
+local OutOfProximity = BetterReplication.Remotes.OutOfProximity
 
+local runserviceConnection: RBXScriptConnection
 local registeredIdentifiers = {} :: {[number]: Player}
 local inProximity = {} :: {[Player]: boolean}
 local renderCache = {} :: {[Player]: {
@@ -34,17 +36,17 @@ if Config.makeRagdollFriendly then
 	readToClient = BufferUtils.readToClient
 end
 
-RegisterIdentifier.OnClientEvent:Connect(function(b: buffer)
+local function handleIdentifierRegistry(b: buffer)
 	local data = BufferUtils.readRegisterIdentifier(b)
-	
+
 	local player: Player = Players:FindFirstChild(data.p)
 	registeredIdentifiers[data.id] = player
-end)
+end
 
 -- associate identifer with player object and push the new cframe
-ToClient.OnClientEvent:Connect(function(b: buffer)
+local function handleReplication(b: buffer)
 	local data = readToClient(b)
-	
+
 	local player = registeredIdentifiers[data.p]
 	local renderCacheEntry = renderCache[player]
 
@@ -66,32 +68,32 @@ ToClient.OnClientEvent:Connect(function(b: buffer)
 		snapshots:pushAt(currentClock, data.c)
 		PositionCache[player] = data.c
 	end
-end)
+end
 
-OutOfProximity.OnClientEvent:Connect(function(b: buffer)
+local function handleProximities(b: buffer)
 	local data = BufferUtils.readOutOfProximityArray(b)
-	
+
 	for _, identifier: number in data do
 		local player = registeredIdentifiers[identifier]
 		if player then
 			inProximity[player] = false
 		end
 	end
-end)
+end
 
-RunService.PreSimulation:Connect(function(dt)
+local function interpolate(dt)
 	local stagedPlayers = {}
 	local stagedResults = {}
-	
+
 	for player, isIn in inProximity do
 		if not isIn or player == localPlayer then
 			continue
 		end
-		
+
 		local renderCacheEntry = renderCache[player]
-		
+
 		local estimatedServerTime = renderCacheEntry.lastClockAt + (os.clock() - renderCacheEntry.lastClockDuration)
-		
+
 		local clientRenderAt = renderCacheEntry.renderAt
 		clientRenderAt += dt
 
@@ -103,11 +105,11 @@ RunService.PreSimulation:Connect(function(dt)
 		elseif renderTimeError < -.01 then
 			clientRenderAt = math.min(estimatedServerTime - Config.interpolationDelay, clientRenderAt + .1 * dt)
 		end
-		
+
 		renderCache[player].renderAt = clientRenderAt
 		local snapshot = Snapshots.getSnapshotInstance(player)
 		local res = snapshot:getAt(clientRenderAt)
-		
+
 		if res then
 			table.insert(
 				stagedPlayers,
@@ -120,7 +122,7 @@ RunService.PreSimulation:Connect(function(dt)
 		end
 	end
 	workspace:BulkMoveTo(stagedPlayers, stagedResults, Enum.BulkMoveMode.FireAllEvents)
-end)
+end
 
 local function setUp(player: Player)
 	inProximity[player] = false
@@ -132,24 +134,68 @@ local function setUp(player: Player)
 	Snapshots.registerPlayer(player)
 end
 
-Players.PlayerAdded:Connect(function(player: Player)
-	setUp(player)
-end)
-for _, player in Players:GetPlayers() do
-	setUp(player)
+local module = {}
+
+local started = false
+function module.start()
+	if started then warn(script:GetFullName(),"| BetterReplication already started!") return end
+	
+	Players.PlayerAdded:Connect(function(player: Player)
+		setUp(player)
+	end)
+	for _, player in Players:GetPlayers() do
+		setUp(player)
+	end
+	Players.PlayerRemoving:Connect(function(player: Player)
+		inProximity[player] = nil
+		renderCache[player] = nil
+
+		Snapshots.deregisterPlayer(player)
+
+		for id, other in registeredIdentifiers do
+			if other == player then
+				registeredIdentifiers[id] = nil
+				break
+			end
+		end
+	end)
+	
+	RegisterIdentifier.OnClientEvent:Connect(handleIdentifierRegistry)
+	registeredIdentifiers = GetRegistry:InvokeServer()
+	
+	OutOfProximity.OnClientEvent:Connect(handleProximities)
+	ToClient.OnClientEvent:Connect(handleReplication)
+	runserviceConnection = RunService.PreSimulation:Connect(interpolate)
+	
+	started = true
 end
 
-Players.PlayerRemoving:Connect(function(player: Player)
-	inProximity[player] = nil
-	renderCache[player] = nil
-	
-	Snapshots.deregisterPlayer(player)
-	
-	for id, other in registeredIdentifiers do
-		if other == player then
-			registeredIdentifiers[id] = nil
-			break
+function module.toggle(v: boolean)
+	if not started then
+		error(script:GetFullName(),"| Start BetterReplication first using the .start() method!")
+	end
+	if v then
+		if not runserviceConnection then
+			runserviceConnection = RunService.PreSimulation:Connect(interpolate)
+		else
+			warn(script:GetFullName(),"| A BetterReplication connection is already active.")
+		end
+	else
+		if runserviceConnection then
+			runserviceConnection:Disconnect()
+			runserviceConnection = nil
+		else
+			warn(script:GetFullName(),"| There is no BetterReplication connection active.")
 		end
 	end
-end)
-registeredIdentifiers = GetRegistry:InvokeServer()
+end
+
+function module.continue()
+	module.toggle(true)
+end
+
+function module.pause()
+	module.toggle(false)
+end
+
+return module

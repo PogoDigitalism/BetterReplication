@@ -1,1 +1,0 @@
-require(script.Parent.UptodatePositions)
