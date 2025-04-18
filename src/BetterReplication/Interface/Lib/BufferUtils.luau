@@ -1,13 +1,15 @@
-type from_client_packet = {
+local BufferUtils = {}
+
+export type from_client_packet = {
 	t: number,
 	c: CFrame
 }
-type to_client_packet = {
+export type to_client_packet = {
 	t: number,
 	p: number,
 	c: CFrame
 }
-type register_identifier = {
+export type register_identifier = {
 	p: string,
 	id: number
 }
