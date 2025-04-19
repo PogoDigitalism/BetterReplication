@@ -4,7 +4,6 @@ local Config = {
 	-- from how many studs should players not be replicated with BetterReplication anymore?
 	proximityThreshold = 100, -- default: 100
 	
-	-- default: false
 	-- ship the whole cframe orientation instead of only the yaw axis to make the humanoidrootpart interpolate accurately
 	-- this setting is only relevant for when the humanoidrootpart doesnt just rotate around its yaw axis (f.e. ragdolls)
 	makeRagdollFriendly = false, -- default: false
