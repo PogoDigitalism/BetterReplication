@@ -153,7 +153,7 @@ return module :: {
 		--[[
 		Starts the server -> client positions interpolater.
 		
-		@help recommend to use this in StarterPlayerScripts script
+		@help recommended to use this in StarterPlayerScripts script
 		
 		@contexts client
 		]]
